@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BreadNeedsBakers Bakery</title>
+    <!-- React + ReactDOM CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script>
+      const { useState } = React;
+
+      function App() {
+        const [posts, setPosts] = useState([]);
+        const [name, setName] = useState("");
+        const [message, setMessage] = useState("");
+        const [visibility, setVisibility] = useState("everyone"); // "everyone" or "onlyMe"
+
+        const handlePost = () => {
+          if (!name || !message) return;
+          setPosts([...posts, { name, message, visibility }]);
+          setMessage("");
+        };
+
+        return React.createElement("div", { style: { fontFamily: "sans-serif", padding: "20px", maxWidth: "600px", margin: "0 auto" } },
+          React.createElement("h1", null, "BreadNeedsBakers Bakery"),
+          React.createElement("h2", null, "Leave a post:"),
+          React.createElement("input", {
+            placeholder: "Your name (optional)",
+            value: name,
+            onChange: (e) => setName(e.target.value),
+            style: { width: "100%", padding: "8px", marginBottom: "8px" }
+          }),
+          React.createElement("textarea", {
+            placeholder: "Your message",
+            value: message,
+            onChange: (e) => setMessage(e.target.value),
+            style: { width: "100%", padding: "8px", marginBottom: "8px" }
+          }),
+          React.createElement("div", { style: { marginBottom: "8px" } },
+            React.createElement("label", null,
+              React.createElement("input", {
+                type: "radio",
+                checked: visibility === "everyone",
+                onChange: () => setVisibility("everyone")
+              }),
+              " Show to everyone"
+            ),
+            React.createElement("br"),
+            React.createElement("label", null,
+              React.createElement("input", {
+                type: "radio",
+                checked: visibility === "onlyMe",
+                onChange: () => setVisibility("onlyMe")
+              }),
+              " Only me"
+            )
+          ),
+          React.createElement("button", { onClick: handlePost, style: { padding: "8px 16px" } }, "Post"),
+          React.createElement("h2", null, "Posts:"),
+          React.createElement("ul", { style: { listStyle: "none", padding: 0 } },
+            posts.map((p, index) =>
+              React.createElement("li", { key: index, style: { marginBottom: "12px", borderBottom: "1px solid #ccc", paddingBottom: "8px" } },
+                React.createElement("strong", null, p.name || "Anonymous", ": "),
+                p.message,
+                React.createElement("br"),
+                React.createElement("em", null, p.visibility === "onlyMe" ? "Only you can see this" : "Everyone can see this")
+              )
+            )
+          )
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(React.createElement(App));
+    </script>
+  </body>
+</html>
