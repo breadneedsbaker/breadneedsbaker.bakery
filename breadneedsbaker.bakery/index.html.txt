@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BreadNeedsBakers Bakery</title>
+    <title>BreadNeedsBaker Bakery</title>
     <!-- React + ReactDOM CDN -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -12,22 +12,30 @@
     <div id="root"></div>
 
     <script>
-      const { useState } = React;
+      const { useState, useEffect } = React;
 
       function App() {
-        const [posts, setPosts] = useState([]);
+        // Load posts from localStorage so they persist
+        const [posts, setPosts] = useState(() => {
+          const saved = localStorage.getItem("bn_posts");
+          return saved ? JSON.parse(saved) : [];
+        });
         const [name, setName] = useState("");
         const [message, setMessage] = useState("");
-        const [visibility, setVisibility] = useState("everyone"); // "everyone" or "onlyMe"
+        const [visibility, setVisibility] = useState("everyone");
 
         const handlePost = () => {
-          if (!name || !message) return;
-          setPosts([...posts, { name, message, visibility }]);
+          if (!name && !message) return;
+          const newPost = { name: name || "Anonymous", message, visibility };
+          const updatedPosts = [...posts, newPost];
+          setPosts(updatedPosts);
+          localStorage.setItem("bn_posts", JSON.stringify(updatedPosts));
           setMessage("");
+          setName("");
         };
 
         return React.createElement("div", { style: { fontFamily: "sans-serif", padding: "20px", maxWidth: "600px", margin: "0 auto" } },
-          React.createElement("h1", null, "BreadNeedsBakers Bakery"),
+          React.createElement("h1", null, "BreadNeedsBaker Bakery"),
           React.createElement("h2", null, "Leave a post:"),
           React.createElement("input", {
             placeholder: "Your name (optional)",
@@ -65,7 +73,7 @@
           React.createElement("ul", { style: { listStyle: "none", padding: 0 } },
             posts.map((p, index) =>
               React.createElement("li", { key: index, style: { marginBottom: "12px", borderBottom: "1px solid #ccc", paddingBottom: "8px" } },
-                React.createElement("strong", null, p.name || "Anonymous", ": "),
+                React.createElement("strong", null, p.name, ": "),
                 p.message,
                 React.createElement("br"),
                 React.createElement("em", null, p.visibility === "onlyMe" ? "Only you can see this" : "Everyone can see this")
