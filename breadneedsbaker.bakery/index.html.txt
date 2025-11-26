@@ -1,90 +1,234 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BreadNeedsBaker Bakery</title>
-    <!-- React + ReactDOM CDN -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  </head>
-  <body>
-    <div id="root"></div>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BreadNeedsBaker Bakery</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<style>
+  body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; }
+  input, textarea { width: 100%; padding: 8px; margin-bottom: 8px; }
+  .post, .fragment, .user-profile { border-bottom: 1px solid #ccc; margin-bottom: 12px; padding-bottom: 8px; }
+  .button { padding: 6px 12px; margin-right: 4px; }
+  .report-log { background-color: #ffe5e5; padding: 8px; margin-bottom: 8px; }
+  img.pfp { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; vertical-align: middle; margin-right: 6px; }
+  .clickable { cursor: pointer; color: blue; text-decoration: underline; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab { padding: 6px 12px; border: 1px solid #ccc; cursor: pointer; }
+  .tab.active { background-color: #eee; font-weight: bold; }
+</style>
+</head>
+<body>
+<div id="root"></div>
 
-    <script>
-      const { useState, useEffect } = React;
+<script>
+const { useState, useEffect } = React;
 
-      function App() {
-        // Load posts from localStorage so they persist
-        const [posts, setPosts] = useState(() => {
-          const saved = localStorage.getItem("bn_posts");
-          return saved ? JSON.parse(saved) : [];
-        });
-        const [name, setName] = useState("");
-        const [message, setMessage] = useState("");
-        const [visibility, setVisibility] = useState("everyone");
+function App() {
+  const [posts, setPosts] = useState([]);
+  const [deletedPosts, setDeletedPosts] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [fragments, setFragments] = useState([
+    { id: 1, name: "Vesper", bio: "Introspective, poetic dreamer", posts: [] },
+    { id: 2, name: "Luc", bio: "Energetic and mischievous", posts: [] },
+    { id: 3, name: "Lucille", bio: "Warm, affectionate, catlike", posts: [] },
+  ]);
 
-        const handlePost = () => {
-          if (!name && !message) return;
-          const newPost = { name: name || "Anonymous", message, visibility };
-          const updatedPosts = [...posts, newPost];
-          setPosts(updatedPosts);
-          localStorage.setItem("bn_posts", JSON.stringify(updatedPosts));
-          setMessage("");
-          setName("");
-        };
+  const [currentUser, setCurrentUser] = useState(null); 
+  const [viewingUser, setViewingUser] = useState(null); 
+  const [nameInput, setNameInput] = useState("");
+  const [pfpInput, setPfpInput] = useState("");
+  const [message, setMessage] = useState("");
+  const [mediaURL, setMediaURL] = useState("");
+  const [mediaType, setMediaType] = useState("text");
+  const [visibility, setVisibility] = useState("everyone");
+  const [userPostCount, setUserPostCount] = useState(0);
 
-        return React.createElement("div", { style: { fontFamily: "sans-serif", padding: "20px", maxWidth: "600px", margin: "0 auto" } },
-          React.createElement("h1", null, "BreadNeedsBaker Bakery"),
-          React.createElement("h2", null, "Leave a post:"),
-          React.createElement("input", {
-            placeholder: "Your name (optional)",
-            value: name,
-            onChange: (e) => setName(e.target.value),
-            style: { width: "100%", padding: "8px", marginBottom: "8px" }
-          }),
-          React.createElement("textarea", {
-            placeholder: "Your message",
-            value: message,
-            onChange: (e) => setMessage(e.target.value),
-            style: { width: "100%", padding: "8px", marginBottom: "8px" }
-          }),
-          React.createElement("div", { style: { marginBottom: "8px" } },
-            React.createElement("label", null,
-              React.createElement("input", {
-                type: "radio",
-                checked: visibility === "everyone",
-                onChange: () => setVisibility("everyone")
-              }),
-              " Show to everyone"
-            ),
-            React.createElement("br"),
-            React.createElement("label", null,
-              React.createElement("input", {
-                type: "radio",
-                checked: visibility === "onlyMe",
-                onChange: () => setVisibility("onlyMe")
-              }),
-              " Only me"
-            )
-          ),
-          React.createElement("button", { onClick: handlePost, style: { padding: "8px 16px" } }, "Post"),
-          React.createElement("h2", null, "Posts:"),
-          React.createElement("ul", { style: { listStyle: "none", padding: 0 } },
-            posts.map((p, index) =>
-              React.createElement("li", { key: index, style: { marginBottom: "12px", borderBottom: "1px solid #ccc", paddingBottom: "8px" } },
-                React.createElement("strong", null, p.name, ": "),
-                p.message,
-                React.createElement("br"),
-                React.createElement("em", null, p.visibility === "onlyMe" ? "Only you can see this" : "Everyone can see this")
-              )
-            )
+  const [activeTab, setActiveTab] = useState("main"); // main, fragments, profile, deleted, reports
+
+  useEffect(() => {
+    if (!currentUser) {
+      const today = new Date().toDateString();
+      const saved = JSON.parse(localStorage.getItem("userPostCount") || "{}");
+      if (saved.date === today) setUserPostCount(saved.count);
+      else localStorage.setItem("userPostCount", JSON.stringify({ date: today, count: 0 }));
+    }
+  }, [currentUser]);
+
+  const handleLogin = () => {
+    if (!nameInput) return alert("Enter a nickname to log in!");
+    const user = {
+      id: Date.now(),
+      nickname: nameInput,
+      pfpURL: pfpInput,
+      posts: []
+    };
+    setUsers([...users, user]);
+    setCurrentUser(user);
+    setNameInput(""); setPfpInput("");
+  };
+
+  const handleLogout = () => setCurrentUser(null);
+  const handleDeleteAccount = () => {
+    if (!currentUser) return;
+    setDeletedPosts([...deletedPosts, ...currentUser.posts]);
+    setUsers(users.filter(u => u.id !== currentUser.id));
+    setCurrentUser(null);
+    setViewingUser(null);
+  };
+
+  const handlePost = (fragmentId = null, targetUserId = null) => {
+    if (!message && mediaType==="text") return;
+    if (!currentUser && userPostCount >=3) { alert("Non-logged-in users can only post 3 times/day."); return; }
+
+    const newPost = {
+      id: Date.now(),
+      user: currentUser ? { id: currentUser.id, nickname: currentUser.nickname, pfpURL: currentUser.pfpURL } 
+                        : { id: null, nickname: nameInput||"Anonymous", pfpURL:null },
+      message, mediaURL, mediaType, visibility, reports:[]
+    };
+
+    if (fragmentId) setFragments(fragments.map(f=>f.id===fragmentId?{...f, posts:[newPost,...f.posts]}:f));
+    else if (targetUserId) setUsers(users.map(u=>u.id===targetUserId?{...u, posts:[newPost,...u.posts]}:u));
+    else setPosts([newPost,...posts]);
+
+    if(!currentUser){
+      const newCount = userPostCount+1;
+      setUserPostCount(newCount);
+      const today = new Date().toDateString();
+      localStorage.setItem("userPostCount", JSON.stringify({ date: today, count: newCount }));
+    }
+    setMessage(""); setMediaURL(""); setMediaType("text");
+  };
+
+  const handleDeletePost = (postId, fragmentId=null, targetUserId=null) => {
+    if(fragmentId){
+      const frag = fragments.find(f=>f.id===fragmentId);
+      const deleted = frag.posts.find(p=>p.id===postId);
+      setDeletedPosts([deleted,...deletedPosts]);
+      setFragments(fragments.map(f=>f.id===fragmentId?{...f, posts:f.posts.filter(p=>p.id!==postId)}:f));
+    } else if(targetUserId){
+      const user = users.find(u=>u.id===targetUserId);
+      const deleted = user.posts.find(p=>p.id===postId);
+      setDeletedPosts([deleted,...deletedPosts]);
+      setUsers(users.map(u=>u.id===targetUserId?{...u, posts:u.posts.filter(p=>p.id!==postId)}:u));
+    } else {
+      const deleted = posts.find(p=>p.id===postId);
+      setDeletedPosts([deleted,...deletedPosts]);
+      setPosts(posts.filter(p=>p.id!==postId));
+    }
+  };
+
+  const handleReport = (postId, fragmentId=null, targetUserId=null) => {
+    const reason = prompt("Reason for reporting?");
+    if(!reason) return;
+    const evidence = prompt("Evidence (optional)?");
+    setReports([{postId, fragmentId, targetUserId, reason, evidence, time:new Date().toLocaleString()}, ...reports]);
+  };
+
+  const renderPost = (p, fragmentId=null, targetUserId=null) => (
+    React.createElement("div",{key:p.id,className:"post"},
+      p.user.pfpURL ? React.createElement("img",{className:"pfp",src:p.user.pfpURL,onClick:()=>p.user.id && setViewingUser(users.find(u=>u.id===p.user.id))}) : null,
+      React.createElement("span",{className:"clickable",onClick:()=>p.user.id && setViewingUser(users.find(u=>u.id===p.user.id))},p.user.nickname),
+      React.createElement("br",null),
+      p.mediaType==="text" ? p.message : null,
+      p.mediaType==="image" && p.mediaURL ? React.createElement("img",{src:p.mediaURL,style:{maxWidth:"100%"}}) : null,
+      p.mediaType==="link" && p.mediaURL ? React.createElement("a",{href:p.mediaURL,target:"_blank"},p.mediaURL) : null,
+      p.mediaType==="video" && p.mediaURL ? React.createElement("video",{controls:true,src:p.mediaURL,style:{maxWidth:"100%"}}) : null,
+      React.createElement("div",null,
+        React.createElement("em",null,p.visibility==="onlyMe"?"Only you can see this":"Everyone can see this"),
+        React.createElement("br",null),
+        React.createElement("button",{onClick:()=>handleDeletePost(p.id,fragmentId,targetUserId)},"Delete"),
+        React.createElement("button",{onClick:()=>handleReport(p.id,fragmentId,targetUserId)},"Report"),
+        p.reports.length>0 ? React.createElement("span",null," Reports:"+p.reports.length) : null
+      )
+    )
+  );
+
+  if(viewingUser){
+    return React.createElement("div",null,
+      React.createElement("h1",null,viewingUser.nickname+"'s Profile"),
+      viewingUser.pfpURL ? React.createElement("img",{className:"pfp",src:viewingUser.pfpURL}) : null,
+      currentUser && currentUser.id===viewingUser.id ? React.createElement("button",{onClick:handleDeleteAccount},"Delete Account") : null,
+      React.createElement("h2",null,"Posts:"),
+      viewingUser.posts.map(p=>renderPost(p,null,viewingUser.id)),
+      React.createElement("button",{onClick:()=>setViewingUser(null)},"Back")
+    );
+  }
+
+  return React.createElement("div",null,
+    React.createElement("h1",null,"BreadNeedsBaker Bakery"),
+
+    React.createElement("div",null,
+      currentUser
+        ? React.createElement("div",null,"Logged in as ",currentUser.nickname, React.createElement("button",{onClick:handleLogout},"Logout"))
+        : React.createElement("div",null,
+            React.createElement("input",{placeholder:"Nickname",value:nameInput,onChange:e=>setNameInput(e.target.value)}),
+            React.createElement("input",{placeholder:"Profile picture URL (optional)",value:pfpInput,onChange:e=>setPfpInput(e.target.value)}),
+            React.createElement("button",{onClick:handleLogin},"Login")
           )
-        );
-      }
+    ),
 
-      const root = ReactDOM.createRoot(document.getElementById("root"));
-      root.render(React.createElement(App));
-    </script>
-  </body>
+    React.createElement("div",{className:"tabs"},
+      ["main","fragments","deleted","reports"].map(tab=>React.createElement("div",{key:tab,className:"tab "+(activeTab===tab?"active":""),onClick:()=>setActiveTab(tab)},tab.charAt(0).toUpperCase()+tab.slice(1)))
+    ),
+
+    activeTab==="main" && React.createElement("div",null,
+      React.createElement("h2",null,"New Post:"),
+      React.createElement("textarea",{placeholder:"Text content",value:message,onChange:e=>setMessage(e.target.value)}),
+      React.createElement("input",{placeholder:"Media URL (image, link, video)",value:mediaURL,onChange:e=>setMediaURL(e.target.value)}),
+      React.createElement("div",null,["text","image","link","video"].map(type=>React.createElement("label",{key:type},
+        React.createElement("input",{type:"radio",checked:mediaType===type,onChange:()=>setMediaType(type)}),type
+      ))),
+      React.createElement("div",null,
+        React.createElement("label",null,React.createElement("input",{type:"radio",checked:visibility==="everyone",onChange:()=>setVisibility("everyone")}),"Show to everyone"),
+        React.createElement("label",null,React.createElement("input",{type:"radio",checked:visibility==="onlyMe",onChange:()=>setVisibility("onlyMe")}),"Only me")
+      ),
+      React.createElement("button",{onClick:()=>handlePost()},"Post"),
+      posts.map(p=>renderPost(p))
+    ),
+
+    activeTab==="fragments" && fragments.map(f=>React.createElement("div",{key:f.id,className:"fragment"},
+      React.createElement("strong",null,f.name),
+      React.createElement("p",null,f.bio),
+      React.createElement("h4",null,"Posts:"),
+      React.createElement("textarea",{placeholder:"Text content",value:message,onChange:e=>setMessage(e.target.value)}),
+      React.createElement("input",{placeholder:"Media URL (image, link, video)",value:mediaURL,onChange:e=>setMediaURL(e.target.value)}),
+      React.createElement("div",null,["text","image","link","video"].map(type=>React.createElement("label",{key:type},
+        React.createElement("input",{type:"radio",checked:mediaType===type,onChange:()=>setMediaType(type)}),type
+      ))),
+      React.createElement("div",null,
+        React.createElement("label",null,React.createElement("input",{type:"radio",checked:visibility==="everyone",onChange:()=>setVisibility("everyone")}),"Show to everyone"),
+        React.createElement("label",null,React.createElement("input",{type:"radio",checked:visibility==="onlyMe",onChange:()=>setVisibility("onlyMe")}),"Only me")
+      ),
+      React.createElement("button",{onClick:()=>handlePost(f.id)},"Post to "+f.name),
+      f.posts.map(p=>renderPost(p,f.id))
+    )),
+
+    activeTab==="deleted" && deletedPosts.map(p=>React.createElement("div",{key:p.id,className:"post"},
+      React.createElement("strong",null,p.user.nickname+": "),
+      p.message||p.mediaURL
+    )),
+
+    activeTab==="reports" && reports.map((r,i)=>React.createElement("div",{key:i,className:"report-log"},
+      React.createElement("strong",null,"Post ID: "+r.postId),
+      React.createElement("br"),
+      React.createElement("em",null,"Fragment: "+(r.fragmentId||"Main Page")),
+      React.createElement("br"),
+      React.createElement("em",null,"Reported User ID: "+(r.targetUserId||"N/A")),
+      React.createElement("br"),
+      React.createElement("em",null,"Reason: "+r.reason),
+      r.evidence?React.createElement("div",null,"Evidence: "+r.evidence):null,
+      React.createElement("br",null),
+      React.createElement("small",null,"Reported at: "+r.time)
+    ))
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(React.createElement(App));
+</script>
+</body>
 </html>
