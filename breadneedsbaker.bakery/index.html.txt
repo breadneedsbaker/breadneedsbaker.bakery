@@ -31,9 +31,9 @@ function App() {
   const [reports, setReports] = useState([]);
   const [users, setUsers] = useState([]);
   const [fragments, setFragments] = useState([
-    { id: 1, name: "Vesper", bio: "Introspective, poetic dreamer", posts: [] },
-    { id: 2, name: "Luc", bio: "Energetic and mischievous", posts: [] },
-    { id: 3, name: "Lucille", bio: "Warm, affectionate, catlike", posts: [] },
+    { id: 1, name: "Vesper", bio: "Introspective, poetic dreamer", posts: [], input:{message:"", mediaURL:"", mediaType:"text", visibility:"everyone"} },
+    { id: 2, name: "Luc", bio: "Energetic and mischievous", posts: [], input:{message:"", mediaURL:"", mediaType:"text", visibility:"everyone"} },
+    { id: 3, name: "Lucille", bio: "Warm, affectionate, catlike", posts: [], input:{message:"", mediaURL:"", mediaType:"text", visibility:"everyone"} },
   ]);
 
   const [currentUser, setCurrentUser] = useState(null); 
@@ -45,9 +45,9 @@ function App() {
   const [mediaType, setMediaType] = useState("text");
   const [visibility, setVisibility] = useState("everyone");
   const [userPostCount, setUserPostCount] = useState(0);
+  const [activeTab, setActiveTab] = useState("main"); // main, fragments, deleted, reports
 
-  const [activeTab, setActiveTab] = useState("main"); // main, fragments, profile, deleted, reports
-
+  // Load post count for guests
   useEffect(() => {
     if (!currentUser) {
       const today = new Date().toDateString();
@@ -59,12 +59,7 @@ function App() {
 
   const handleLogin = () => {
     if (!nameInput) return alert("Enter a nickname to log in!");
-    const user = {
-      id: Date.now(),
-      nickname: nameInput,
-      pfpURL: pfpInput,
-      posts: []
-    };
+    const user = { id: Date.now(), nickname: nameInput, pfpURL: pfpInput || "https://via.placeholder.com/40", posts: [] };
     setUsers([...users, user]);
     setCurrentUser(user);
     setNameInput(""); setPfpInput("");
@@ -80,19 +75,29 @@ function App() {
   };
 
   const handlePost = (fragmentId = null, targetUserId = null) => {
-    if (!message && mediaType==="text") return;
+    const input = fragmentId ? fragments.find(f=>f.id===fragmentId).input : {message, mediaURL, mediaType, visibility};
+    if (!input.message && input.mediaType==="text") return;
     if (!currentUser && userPostCount >=3) { alert("Non-logged-in users can only post 3 times/day."); return; }
 
     const newPost = {
       id: Date.now(),
       user: currentUser ? { id: currentUser.id, nickname: currentUser.nickname, pfpURL: currentUser.pfpURL } 
-                        : { id: null, nickname: nameInput||"Anonymous", pfpURL:null },
-      message, mediaURL, mediaType, visibility, reports:[]
+                        : { id: null, nickname: nameInput||"Anonymous", pfpURL:"https://via.placeholder.com/40" },
+      message: input.message,
+      mediaURL: input.mediaURL,
+      mediaType: input.mediaType,
+      visibility: input.visibility,
+      reports:[]
     };
 
-    if (fragmentId) setFragments(fragments.map(f=>f.id===fragmentId?{...f, posts:[newPost,...f.posts]}:f));
-    else if (targetUserId) setUsers(users.map(u=>u.id===targetUserId?{...u, posts:[newPost,...u.posts]}:u));
-    else setPosts([newPost,...posts]);
+    if (fragmentId) {
+      setFragments(fragments.map(f=>f.id===fragmentId?{...f, posts:[newPost,...f.posts], input:{message:"", mediaURL:"", mediaType:"text", visibility:"everyone"}}:f));
+    } else if (targetUserId) {
+      setUsers(users.map(u=>u.id===targetUserId?{...u, posts:[newPost,...u.posts]}:u));
+    } else {
+      setPosts([newPost,...posts]);
+      setMessage(""); setMediaURL(""); setMediaType("text"); setVisibility("everyone");
+    }
 
     if(!currentUser){
       const newCount = userPostCount+1;
@@ -100,7 +105,6 @@ function App() {
       const today = new Date().toDateString();
       localStorage.setItem("userPostCount", JSON.stringify({ date: today, count: newCount }));
     }
-    setMessage(""); setMediaURL(""); setMediaType("text");
   };
 
   const handleDeletePost = (postId, fragmentId=null, targetUserId=null) => {
@@ -130,7 +134,7 @@ function App() {
 
   const renderPost = (p, fragmentId=null, targetUserId=null) => (
     React.createElement("div",{key:p.id,className:"post"},
-      p.user.pfpURL ? React.createElement("img",{className:"pfp",src:p.user.pfpURL,onClick:()=>p.user.id && setViewingUser(users.find(u=>u.id===p.user.id))}) : null,
+      React.createElement("img",{className:"pfp",src:p.user.pfpURL,onClick:()=>p.user.id && setViewingUser(users.find(u=>u.id===p.user.id))}),
       React.createElement("span",{className:"clickable",onClick:()=>p.user.id && setViewingUser(users.find(u=>u.id===p.user.id))},p.user.nickname),
       React.createElement("br",null),
       p.mediaType==="text" ? p.message : null,
@@ -150,7 +154,7 @@ function App() {
   if(viewingUser){
     return React.createElement("div",null,
       React.createElement("h1",null,viewingUser.nickname+"'s Profile"),
-      viewingUser.pfpURL ? React.createElement("img",{className:"pfp",src:viewingUser.pfpURL}) : null,
+      React.createElement("img",{className:"pfp",src:viewingUser.pfpURL}),
       currentUser && currentUser.id===viewingUser.id ? React.createElement("button",{onClick:handleDeleteAccount},"Delete Account") : null,
       React.createElement("h2",null,"Posts:"),
       viewingUser.posts.map(p=>renderPost(p,null,viewingUser.id)),
@@ -163,7 +167,7 @@ function App() {
 
     React.createElement("div",null,
       currentUser
-        ? React.createElement("div",null,"Logged in as ",currentUser.nickname, React.createElement("button",{onClick:handleLogout},"Logout"))
+        ? React.createElement("div",null,"Logged in as ",currentUser.nickname, " ", React.createElement("button",{onClick:handleLogout},"Logout"))
         : React.createElement("div",null,
             React.createElement("input",{placeholder:"Nickname",value:nameInput,onChange:e=>setNameInput(e.target.value)}),
             React.createElement("input",{placeholder:"Profile picture URL (optional)",value:pfpInput,onChange:e=>setPfpInput(e.target.value)}),
@@ -194,14 +198,14 @@ function App() {
       React.createElement("strong",null,f.name),
       React.createElement("p",null,f.bio),
       React.createElement("h4",null,"Posts:"),
-      React.createElement("textarea",{placeholder:"Text content",value:message,onChange:e=>setMessage(e.target.value)}),
-      React.createElement("input",{placeholder:"Media URL (image, link, video)",value:mediaURL,onChange:e=>setMediaURL(e.target.value)}),
+      React.createElement("textarea",{placeholder:"Text content",value:f.input.message,onChange:e=>setFragments(fragments.map(fr=>fr.id===f.id?{...fr,input:{...fr.input,message:e.target.value}}:fr))}),
+      React.createElement("input",{placeholder:"Media URL (image, link, video)",value:f.input.mediaURL,onChange:e=>setFragments(fragments.map(fr=>fr.id===f.id?{...fr,input:{...fr.input,mediaURL:e.target.value}}:fr))}),
       React.createElement("div",null,["text","image","link","video"].map(type=>React.createElement("label",{key:type},
-        React.createElement("input",{type:"radio",checked:mediaType===type,onChange:()=>setMediaType(type)}),type
+        React.createElement("input",{type:"radio",checked:f.input.mediaType===type,onChange:()=>setFragments(fragments.map(fr=>fr.id===f.id?{...fr,input:{...fr.input,mediaType:type}}:fr))}),type
       ))),
       React.createElement("div",null,
-        React.createElement("label",null,React.createElement("input",{type:"radio",checked:visibility==="everyone",onChange:()=>setVisibility("everyone")}),"Show to everyone"),
-        React.createElement("label",null,React.createElement("input",{type:"radio",checked:visibility==="onlyMe",onChange:()=>setVisibility("onlyMe")}),"Only me")
+        React.createElement("label",null,React.createElement("input",{type:"radio",checked:f.input.visibility==="everyone",onChange:()=>setFragments(fragments.map(fr=>fr.id===f.id?{...fr,input:{...fr.input,visibility:"everyone"}}:fr))}),"Show to everyone"),
+        React.createElement("label",null,React.createElement("input",{type:"radio",checked:f.input.visibility==="onlyMe",onChange:()=>setFragments(fragments.map(fr=>fr.id===f.id?{...fr,input:{...fr.input,visibility:"onlyMe"}}:fr))}),"Only me")
       ),
       React.createElement("button",{onClick:()=>handlePost(f.id)},"Post to "+f.name),
       f.posts.map(p=>renderPost(p,f.id))
